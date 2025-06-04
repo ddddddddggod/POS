@@ -8,6 +8,6 @@ digital system FPGA project
 ## 메뉴판 선택
 
 ## 계산기
--UI
--제어
+- UI (block, 숫자, 연산자, input, output)
+- cursor
 
