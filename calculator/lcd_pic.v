@@ -33,13 +33,8 @@ module lcd_pic(
     wire [3:0] cursor_y = 1;
 
     //--------------------------------------------
-    // 버튼 텍스트 매핑 (0~9, +, =)
+    // 버튼 탐지
     //--------------------------------------------
-    // row 0: 1 2 3
-    // row 1: 4 5 6
-    // row 2: 7 8 9
-    // row 3: + 0 =
-
     reg in_button;
     reg [3:0] btn_row;
     reg [3:0] btn_col;
@@ -69,17 +64,64 @@ module lcd_pic(
     end
 
     //--------------------------------------------
+    // 문자 코드 매핑
+    //--------------------------------------------
+    reg [7:0] char_code;
+    always @(*) begin
+        case ({btn_row, btn_col})
+            8'h00: char_code = "1";
+            8'h01: char_code = "2";
+            8'h02: char_code = "3";
+            8'h10: char_code = "4";
+            8'h11: char_code = "5";
+            8'h12: char_code = "6";
+            8'h20: char_code = "7";
+            8'h21: char_code = "8";
+            8'h22: char_code = "9";
+            8'h30: char_code = "+";
+            8'h31: char_code = "0";
+            8'h32: char_code = "=";
+            default: char_code = 8'd0;
+        endcase
+    end
+
+    //--------------------------------------------
+    // 문자 좌표 및 출력 여부
+    //--------------------------------------------
+    reg [10:0] char_left, char_top;
+    wire [3:0] font_x = (pix_x - char_left) >> 1; // 확대 표시: 2x 스케일
+    wire [3:0] font_y = (pix_y - char_top) >> 1;
+    wire [7:0] font_bits;
+
+    always @(*) begin
+        char_left = ORIGIN_X + btn_col * (BTN_W + GAP_X) + 18;
+        char_top  = ORIGIN_Y + btn_row * (BTN_H + GAP_Y) + 18;
+    end
+
+    font_rom font_rom_inst (
+        .clk(clk_in),
+        .char_code(char_code),
+        .row(font_y),
+        .font_line(font_bits)
+    );
+
+    //--------------------------------------------
     // 픽셀 색상 출력
     //--------------------------------------------
     always @(*) begin
         if (!sys_rst_n)
             pix_data = BLACK;
+        else if (pix_y < 100)
+            pix_data = YELLOW;
+        else if (pix_x >= char_left && pix_x < char_left + 16 &&
+                 pix_y >= char_top  && pix_y < char_top + 16 &&
+                 font_x < 8 && font_y < 8 &&
+                 font_bits[7 - font_x])
+            pix_data = BLACK; // 글자 출력 (확대됨)
         else if (in_button && (btn_row == cursor_y && btn_col == cursor_x))
             pix_data = ORANGE;  // 커서 강조
         else if (in_button)
             pix_data = GRAY;    // 일반 버튼
-        else if (pix_y < 100)
-            pix_data = YELLOW;  // 상단 텍스트 영역 (결과 영역)
         else
             pix_data = WHITE;   // 배경
     end
