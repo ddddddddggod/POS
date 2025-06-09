@@ -5,12 +5,12 @@ module lcd_pic(
     input wire sys_rst_n,
     input wire [10:0] pix_x,
     input wire [10:0] pix_y,
+    input wire [3:0] cursor_x,
+    input wire [3:0] cursor_y,
     output reg [23:0] pix_data
 );
 
-    //--------------------------------------------
     // 버튼 매핑 (계산기 UI)
-    //--------------------------------------------
     parameter BTN_W = 60;
     parameter BTN_H = 60;
     parameter GAP_X = 20;
@@ -18,9 +18,7 @@ module lcd_pic(
     parameter ORIGIN_X = 100;
     parameter ORIGIN_Y = 150;
 
-    //--------------------------------------------
     // 색상 정의
-    //--------------------------------------------
     localparam RED    = 24'hFF0000,
                ORANGE = 24'hFFA500,
                GRAY   = 24'hBEBEBE,
@@ -28,17 +26,10 @@ module lcd_pic(
                BLACK  = 24'h000000,
                YELLOW = 24'hFFFF00;
 
-    // 커서 위치 (임시 고정: 숫자 5 위치)
-    wire [3:0] cursor_x = 1;
-    wire [3:0] cursor_y = 1;
-
-    //--------------------------------------------
     // 버튼 탐지
-    //--------------------------------------------
     reg in_button;
     reg [3:0] btn_row;
     reg [3:0] btn_col;
-
     integer row, col;
     reg [11:0] btn_left, btn_right;
     reg [11:0] btn_top, btn_bottom;
@@ -63,9 +54,7 @@ module lcd_pic(
         end
     end
 
-    //--------------------------------------------
     // 문자 코드 매핑
-    //--------------------------------------------
     reg [7:0] char_code;
     always @(*) begin
         case ({btn_row, btn_col})
@@ -85,11 +74,9 @@ module lcd_pic(
         endcase
     end
 
-    //--------------------------------------------
-    // 문자 좌표 및 출력 여부
-    //--------------------------------------------
+    // 문자 위치 및 폰트 출력
     reg [10:0] char_left, char_top;
-    wire [3:0] font_x = (pix_x - char_left) >> 1; // 확대 표시: 2x 스케일
+    wire [3:0] font_x = (pix_x - char_left) >> 1;
     wire [3:0] font_y = (pix_y - char_top) >> 1;
     wire [7:0] font_bits;
 
@@ -105,9 +92,7 @@ module lcd_pic(
         .font_line(font_bits)
     );
 
-    //--------------------------------------------
     // 픽셀 색상 출력
-    //--------------------------------------------
     always @(*) begin
         if (!sys_rst_n)
             pix_data = BLACK;
@@ -117,13 +102,13 @@ module lcd_pic(
                  pix_y >= char_top  && pix_y < char_top + 16 &&
                  font_x < 8 && font_y < 8 &&
                  font_bits[7 - font_x])
-            pix_data = BLACK; // 글자 출력 (확대됨)
+            pix_data = BLACK;
         else if (in_button && (btn_row == cursor_y && btn_col == cursor_x))
-            pix_data = ORANGE;  // 커서 강조
+            pix_data = ORANGE;
         else if (in_button)
-            pix_data = GRAY;    // 일반 버튼
+            pix_data = GRAY;
         else
-            pix_data = WHITE;   // 배경
+            pix_data = WHITE;
     end
 
 endmodule
