@@ -1,4 +1,4 @@
-timescale 1ns / 1ps
+`timescale 1ns / 1ps
 
 module lcd_top(
     input wire sys_clk,
