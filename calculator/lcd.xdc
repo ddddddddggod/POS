@@ -13,6 +13,11 @@ set_property -dict {PACKAGE_PIN L18 IOSTANDARD LVCMOS33} [get_ports lcd_clk]
 set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports lcd_bl]
 set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33} [get_ports lcd_ud]
 set_property -dict {PACKAGE_PIN D15 IOSTANDARD LVCMOS33} [get_ports lcd_de]
+set_property -dict {PACKAGE_PIN T18 IOSTANDARD LVCMOS33} [get_ports btn_up]
+set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS33} [get_ports btn_down]
+set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS33} [get_ports btn_left]
+set_property -dict {PACKAGE_PIN R16 IOSTANDARD LVCMOS33} [get_ports btn_right]
+
 
 #-------------------------------
 # LCD RGB888 Output (24bit)
