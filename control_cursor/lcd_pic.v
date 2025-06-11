@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 module lcd_pic(
     input wire clk_in,
     input wire sys_rst_n,
@@ -5,9 +7,10 @@ module lcd_pic(
     input wire [10:0] pix_y,
     input wire [3:0] cursor_x,
     input wire [3:0] cursor_y,
-    output reg [23:0] pix_data
+    output reg [23:0] pix_data_ui
 );
 
+    // 버튼 매핑 (계산기 UI)
     parameter BTN_W = 60;
     parameter BTN_H = 60;
     parameter GAP_X = 20;
@@ -15,6 +18,7 @@ module lcd_pic(
     parameter ORIGIN_X = 100;
     parameter ORIGIN_Y = 150;
 
+    // 색상 정의
     localparam RED    = 24'hFF0000,
                ORANGE = 24'hFFA500,
                GRAY   = 24'hBEBEBE,
@@ -22,10 +26,10 @@ module lcd_pic(
                BLACK  = 24'h000000,
                YELLOW = 24'hFFFF00;
 
+    // 버튼 탐지
     reg in_button;
     reg [3:0] btn_row;
     reg [3:0] btn_col;
-
     integer row, col;
     reg [11:0] btn_left, btn_right;
     reg [11:0] btn_top, btn_bottom;
@@ -50,16 +54,61 @@ module lcd_pic(
         end
     end
 
+    // 문자 코드 매핑
+    reg [7:0] char_code;
+    always @(*) begin
+        case ({btn_row, btn_col})
+            8'h00: char_code = "1";
+            8'h01: char_code = "2";
+            8'h02: char_code = "3";
+            8'h10: char_code = "4";
+            8'h11: char_code = "5";
+            8'h12: char_code = "6";
+            8'h20: char_code = "7";
+            8'h21: char_code = "8";
+            8'h22: char_code = "9";
+            8'h30: char_code = "+";
+            8'h31: char_code = "0";
+            8'h32: char_code = "=";
+            default: char_code = 8'd0;
+        endcase
+    end
+
+    // 문자 위치 및 폰트 출력
+    reg [10:0] char_left, char_top;
+    wire [3:0] font_x = (pix_x - char_left) >> 1;
+    wire [3:0] font_y = (pix_y - char_top) >> 1;
+    wire [7:0] font_bits;
+
+    always @(*) begin
+        char_left = ORIGIN_X + btn_col * (BTN_W + GAP_X) + 18;
+        char_top  = ORIGIN_Y + btn_row * (BTN_H + GAP_Y) + 18;
+    end
+
+    font_rom font_rom_inst (
+        .clk(clk_in),
+        .char_code(char_code),
+        .row(font_y),
+        .font_line(font_bits)
+    );
+
+    // 픽셀 색상 출력
     always @(*) begin
         if (!sys_rst_n)
-            pix_data = BLACK;
-        else if (in_button && (btn_row == cursor_y && btn_col == cursor_x))
-            pix_data = ORANGE;
-        else if (in_button)
-            pix_data = GRAY;
+            pix_data_ui = BLACK;
         else if (pix_y < 100)
-            pix_data = YELLOW;
+            pix_data_ui = YELLOW;
+        else if (pix_x >= char_left && pix_x < char_left + 16 &&
+                 pix_y >= char_top  && pix_y < char_top + 16 &&
+                 font_x < 8 && font_y < 8 &&
+                 font_bits[7 - font_x])
+            pix_data_ui = BLACK;
+        else if (in_button && (btn_row == cursor_y && btn_col == cursor_x))
+            pix_data_ui = ORANGE;
+        else if (in_button)
+            pix_data_ui = GRAY;
         else
-            pix_data = WHITE;
+            pix_data_ui = WHITE;
     end
+
 endmodule
