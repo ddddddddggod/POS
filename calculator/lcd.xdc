@@ -17,6 +17,7 @@ set_property -dict {PACKAGE_PIN T18 IOSTANDARD LVCMOS33} [get_ports btn_up]
 set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS33} [get_ports btn_down]
 set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS33} [get_ports btn_left]
 set_property -dict {PACKAGE_PIN R16 IOSTANDARD LVCMOS33} [get_ports btn_right]
+set_property -dict {PACKAGE_PIN P16 IOSTANDARD LVCMOS33} [get_ports btn_center]
 
 
 #-------------------------------
