@@ -2,7 +2,7 @@
 
 module font_rom(
     input  wire        clk,
-    input  wire [7:0]  char_code,   // ex: '0', '1', '+', '=' ASCII
+    input  wire [7:0]  char_code,   // ex: '0', '1', '+', '=', etc.
     input  wire [3:0]  row,         // 0~7 row (y-direction)
     output reg  [7:0]  font_line    // 8 pixels in one row (x-direction)
 );
@@ -10,7 +10,7 @@ module font_rom(
     reg [7:0] rom [0:127][0:7]; // 128 ASCII chars, 8 rows each
 
     initial begin
-        // Digits '0' to '9'
+        // Digits '0' to '9' (ASCII 48 ~ 57)
         rom[8'd48][0] = 8'b00111100;
         rom[8'd48][1] = 8'b01100110;
         rom[8'd48][2] = 8'b01101110;
@@ -111,6 +111,26 @@ module font_rom(
         rom[8'd43][6] = 8'b00011000;
         rom[8'd43][7] = 8'b00000000;
 
+        // '-' symbol (ASCII 45)
+        rom[8'd45][0] = 8'b00000000;
+        rom[8'd45][1] = 8'b00000000;
+        rom[8'd45][2] = 8'b00000000;
+        rom[8'd45][3] = 8'b11111111;
+        rom[8'd45][4] = 8'b00000000;
+        rom[8'd45][5] = 8'b00000000;
+        rom[8'd45][6] = 8'b00000000;
+        rom[8'd45][7] = 8'b00000000;
+
+        // '*' symbol (ASCII 42)
+        rom[8'd42][0] = 8'b00000000;
+        rom[8'd42][1] = 8'b01100110;
+        rom[8'd42][2] = 8'b00111100;
+        rom[8'd42][3] = 8'b11111111;
+        rom[8'd42][4] = 8'b00111100;
+        rom[8'd42][5] = 8'b01100110;
+        rom[8'd42][6] = 8'b00000000;
+        rom[8'd42][7] = 8'b00000000;
+
         // '=' symbol (ASCII 61)
         rom[8'd61][0] = 8'b00000000;
         rom[8'd61][1] = 8'b11111111;
@@ -120,6 +140,16 @@ module font_rom(
         rom[8'd61][5] = 8'b00000000;
         rom[8'd61][6] = 8'b00000000;
         rom[8'd61][7] = 8'b00000000;
+
+        // 'C' symbol (ASCII 67)
+        rom[8'd67][0] = 8'b00111100;
+        rom[8'd67][1] = 8'b01100110;
+        rom[8'd67][2] = 8'b01100000;
+        rom[8'd67][3] = 8'b01100000;
+        rom[8'd67][4] = 8'b01100000;
+        rom[8'd67][5] = 8'b01100110;
+        rom[8'd67][6] = 8'b00111100;
+        rom[8'd67][7] = 8'b00000000;
     end
 
     always @(posedge clk)
