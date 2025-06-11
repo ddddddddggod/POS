@@ -4,11 +4,12 @@ module lcd_top(
     input wire sys_clk,
     input wire sys_rst_n,
 
-    // 👉 버튼 입력 추가
+    // 버튼 입력
     input wire btn_up,
     input wire btn_down,
     input wire btn_left,
     input wire btn_right,
+    input wire btn_center,  // Enter 버튼
 
     output wire [23:0] rgb_lcd,
     output wire hsync,
@@ -23,18 +24,26 @@ module lcd_top(
     wire locked;
     wire rst_n;
 
-    wire [10:0] pix_x;  // 800 해상도면 11비트
-    wire [10:0] pix_y;  // 480 해상도면 11비트로 통일
+    wire [10:0] pix_x;
+    wire [10:0] pix_y;
     wire [23:0] pix_data;
     wire [3:0] cursor_x, cursor_y;
+    wire [7:0] btn_char;
+    wire btn_valid;
 
-    // Reset active when locked and switch is ON
+    // FSM 내부 출력 → lcd_pic 연결용
+    wire [7:0] disp_char0;
+    wire [7:0] disp_char1;
+    wire [7:0] op_char;
+    wire [7:0] input_val;
+    wire [15:0] result;
+    wire calc_done;
+
+    // 리셋 조건
     assign rst_n = (sys_rst_n & locked);
-
-    // LCD UP/DOWN 설정 고정
     assign lcd_ud = 1'b0;
 
-    // 33MHz 클럭 생성기
+    // PLL (33MHz)
     clk_wiz_0 clk_wiz_0_inst (
         .reset(~sys_rst_n),
         .clk_in1(sys_clk),
@@ -42,7 +51,7 @@ module lcd_top(
         .locked(locked)
     );
 
-    // 커서 컨트롤 모듈
+    // 커서 제어
     cursor_ctrl cursor_ctrl_inst (
         .clk(lcd_clk_33m),
         .rst_n(rst_n),
@@ -54,18 +63,47 @@ module lcd_top(
         .cursor_y(cursor_y)
     );
 
+    // 버튼 입력 처리
+    button_input button_input_inst (
+        .clk(lcd_clk_33m),
+        .rst_n(rst_n),
+        .cursor_x(cursor_x),
+        .cursor_y(cursor_y),
+        .btn_enter(btn_center),
+        .btn_char(btn_char),
+        .btn_valid(btn_valid)
+    );
+
+    // 계산 FSM
+    calc_fsm calc_fsm_inst (
+        .clk(lcd_clk_33m),
+        .rst_n(rst_n),
+        .btn_valid(btn_valid),
+        .btn_char(btn_char),
+        .disp_char0(disp_char0),
+        .disp_char1(disp_char1),
+        .op_char(op_char),
+        .input_val(input_val),
+        .result_value(result),     // 수정된 포트명
+        .result_valid(calc_done)   // 수정된 포트명
+    );
+
     // LCD 픽셀 생성
     lcd_pic lcd_pic_inst (
         .clk_in(lcd_clk_33m),
         .sys_rst_n(rst_n),
         .pix_x(pix_x),
         .pix_y(pix_y),
-        .cursor_x(cursor_x),       // 🔧 전달
-        .cursor_y(cursor_y),       // 🔧 전달
+        .cursor_x(cursor_x),
+        .cursor_y(cursor_y),
+        .input_val(input_val),
+        .result(result),
+        .op_char(op_char),
+        .calc_done(calc_done),
         .pix_data(pix_data)
     );
 
-    // LCD 제어 모듈
+    // LCD 출력 제어
     lcd_ctrl lcd_ctrl_inst (
         .clk_in(lcd_clk_33m),
         .sys_rst_n(rst_n),
@@ -82,4 +120,5 @@ module lcd_top(
     );
 
 endmodule
+
 
