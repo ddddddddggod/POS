@@ -5,6 +5,7 @@ module lcd_top (
     input wire btn_down,
     input wire btn_left,
     input wire btn_right,
+    input wire [7:0] dip_sw,  // DIP 스위치 입력 (최소 1비트 사용)
     output wire [23:0] rgb_lcd,
     output wire hsync,
     output wire vsync,
@@ -25,6 +26,11 @@ module lcd_top (
 
     assign rst_n = sys_rst_n & locked;
     assign lcd_ud = 1'b0;
+    
+    wire [23:0] pix_data_ui;   // 숫자패드 UI 화면 픽셀 데이터
+    wire [23:0] pix_data_img;  // 이미지 화면 픽셀 데이터
+    
+    reg display_mode;  // 0: 숫자패드 UI, 1: 이미지 표시
 
     // 클럭 생성기
     clk_wiz_0 clk_wiz_0_inst (
@@ -54,6 +60,17 @@ module lcd_top (
         .cursor_y(cursor_y)
     );
 
+    // DIP 스위치로 display_mode 제어
+    always @(posedge lcd_clk_33m or negedge rst_n) begin
+        if (!rst_n)
+            display_mode <= 1'b0;
+        else
+            display_mode <= dip_sw[0];  // SW0 == 1이면 이미지 표시
+    end
+
+    // display mode에 따른 픽셀 데이터 선택
+    assign pix_data = (display_mode == 1'b0) ? pix_data_ui : pix_data_img;
+
     // LCD 컨트롤
     lcd_ctrl lcd_ctrl_inst (
         .clk_in(lcd_clk_33m),
@@ -70,7 +87,7 @@ module lcd_top (
         .lcd_bl(lcd_bl)
     );
 
-    // 픽셀 색상
+    // 숫자패드 UI
     lcd_pic lcd_pic_inst (
         .clk_in(lcd_clk_33m),
         .sys_rst_n(rst_n),
@@ -78,6 +95,17 @@ module lcd_top (
         .pix_y(pix_y),
         .cursor_x(cursor_x),
         .cursor_y(cursor_y),
-        .pix_data(pix_data)
+        .pix_data(pix_data_ui)
     );
+
+    // 이미지 화면
+    lcd_pic_img lcd_pic_img_inst (
+        .clk_in(lcd_clk_33m),
+        .sys_rst_n(rst_n),
+        .pix_x(pix_x),
+        .pix_y(pix_y),
+        .pix_data(pix_data_img)
+    );
+
 endmodule
+
