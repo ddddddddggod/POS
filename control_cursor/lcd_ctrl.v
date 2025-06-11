@@ -1,6 +1,5 @@
 `timescale 1ns / 1ps
 
-
 module lcd_ctrl(
     input wire clk_in,
     input wire sys_rst_n,
