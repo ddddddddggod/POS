@@ -1,4 +1,6 @@
-module lcd_pic_img (
+`timescale 1ns / 1ps
+
+module lcd_pic_image (
     input wire clk_in,
     input wire sys_rst_n,
     input wire [10:0] pix_x,
@@ -9,7 +11,7 @@ module lcd_pic_img (
     parameter IMG_HEIGHT = 249;
     parameter IMG_WIDTH = 345;
     parameter ORIGIN_X = 100;
-    parameter ORIGIN_Y = 150;
+    parameter ORIGIN_Y = 60;
 
     wire [16:0] rom_addr;
     wire [23:0] rom_data;
