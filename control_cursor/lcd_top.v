@@ -123,6 +123,10 @@ module lcd_top(
         .pix_y(pix_y),
         .cursor_x(cursor_x),       // ? 전달
         .cursor_y(cursor_y),       // ? 전달
+        .input_val(input_val),    // 추가 필요
+        .result(result),          // 추가 필요
+        .op_char(op_char),        // 추가 필요
+        .calc_done(calc_done),    // 추가 필요
         .pix_data_ui(pix_data_ui)
     );
 
