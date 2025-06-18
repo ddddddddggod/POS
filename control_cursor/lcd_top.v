@@ -9,9 +9,13 @@ module lcd_top(
     input wire btn_down,
     input wire btn_left,
     input wire btn_right,
+    input wire btn_center,  // Enter 버튼
 
     input wire [7:0] dip_sw,  // DIP 스위치 입력 (최소 1비트 사용)
-
+    
+    /// led
+    output wire [3:0] led,
+    
     output wire [23:0] rgb_lcd,
     output wire hsync,
     output wire vsync,
@@ -29,12 +33,26 @@ module lcd_top(
     wire [10:0] pix_y;  // 480 해상도면 11비트로 통일
     wire [23:0] pix_data;
     wire [3:0] cursor_x, cursor_y;
+    wire [7:0] btn_char;
+    wire btn_valid;
+    
+    // FSM 내부 출력 → lcd_pic 연결용
+    wire [7:0] disp_char0;
+    wire [7:0] disp_char1;
+    wire [7:0] op_char;
+    wire [7:0] input_val;
+    wire [15:0] result;
+    wire calc_done;
+
 
     // Reset active when locked and switch is ON
     assign rst_n = (sys_rst_n & locked);
 
     // LCD UP/DOWN 설정 고정
     assign lcd_ud = 1'b0;
+    
+    /// led - sw mapping
+    assign led = ~dip_sw[5:2];
     
     wire [23:0] pix_data_ui;   // 숫자패드 UI 화면 픽셀 데이터
     wire [23:0] pix_data_img;  // 이미지 화면 픽셀 데이터
@@ -72,6 +90,31 @@ module lcd_top(
     // display mode에 따른 픽셀 데이터 선택
     assign pix_data = (display_mode == 1'b0) ? pix_data_ui : pix_data_img;
 
+    // 버튼 입력 처리
+    button_input button_input_inst (
+        .clk(lcd_clk_33m),
+        .rst_n(rst_n),
+        .cursor_x(cursor_x),
+        .cursor_y(cursor_y),
+        .btn_enter(btn_center),
+        .btn_char(btn_char),
+        .btn_valid(btn_valid)
+    );
+
+    // 계산 FSM
+    calc_fsm calc_fsm_inst (
+        .clk(lcd_clk_33m),
+        .rst_n(rst_n),
+        .btn_valid(btn_valid),
+        .btn_char(btn_char),
+        .disp_char0(disp_char0),
+        .disp_char1(disp_char1),
+        .op_char(op_char),
+        .input_val(input_val),
+        .result_value(result),     // 수정된 포트명
+        .result_valid(calc_done)   // 수정된 포트명
+    );
+
     // LCD 픽셀 생성
     lcd_pic lcd_pic_inst (
         .clk_in(lcd_clk_33m),
@@ -105,6 +148,7 @@ module lcd_top(
         .sys_rst_n(rst_n),
         .pix_x(pix_x),
         .pix_y(pix_y),
+        .sw(dip_sw[5:2]),  // DIP 스위치 일부만 전달
         .pix_data(pix_data_img)
     );
 endmodule
