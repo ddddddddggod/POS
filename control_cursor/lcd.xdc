@@ -45,12 +45,23 @@ set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports {rgb_lcd[0]}
 #-------------------------------
 # pin mapping
 #-------------------------------
-set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS33} [get_ports btn_up]
+set_property -dict {PACKAGE_PIN T18 IOSTANDARD LVCMOS33} [get_ports btn_up]
 set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS33} [get_ports btn_down]
-set_property -dict {PACKAGE_PIN T18 IOSTANDARD LVCMOS33} [get_ports btn_left]
-set_property -dict {PACKAGE_PIN P16 IOSTANDARD LVCMOS33} [get_ports btn_right]
-
+set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS33} [get_ports btn_left]
+set_property -dict {PACKAGE_PIN R16 IOSTANDARD LVCMOS33} [get_ports btn_right]
+set_property -dict {PACKAGE_PIN P16 IOSTANDARD LVCMOS33} [get_ports btn_center]
 #-------------------------------
 # using dip sw
 #-------------------------------
 set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[0]}]
+set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[2]}]
+set_property -dict {PACKAGE_PIN F21 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[3]}]
+set_property -dict {PACKAGE_PIN H19 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[4]}]
+set_property -dict {PACKAGE_PIN H18 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[5]}]
+#-------------------------------
+#led
+#-------------------------------
+set_property -dict {PACKAGE_PIN T22 IOSTANDARD LVCMOS33}  [get_ports {led[0]}]
+set_property -dict {PACKAGE_PIN T21 IOSTANDARD LVCMOS33}  [get_ports {led[1]}]
+set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33}  [get_ports {led[2]}]
+set_property -dict {PACKAGE_PIN U21 IOSTANDARD LVCMOS33}  [get_ports {led[3]}]
