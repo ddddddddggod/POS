@@ -8,7 +8,7 @@ module lcd_pic(
     input wire [3:0] cursor_x,
     input wire [3:0] cursor_y,
 
-    input wire [7:0] input_val,
+    input wire [15:0] input_val,
     input wire [15:0] result,
     input wire [7:0] op_char,
     input wire calc_done,
@@ -86,14 +86,17 @@ module lcd_pic(
         .font_line(font_bits)
     );
 
-    // 결과 문자열 구성
-    reg [7:0] result_str[0:31];
+    // 결과 문자열 출력용 문자 1개씩
     reg [7:0] current_char;
-    reg [10:0] txt_x, txt_y;
-    reg [3:0] font_x_res, font_y_res;
+    wire [3:0] font_x_res;
+    wire [3:0] font_y_res;
     wire [7:0] font_line_res;
     reg is_result_area;
+    reg [10:0] txt_x, txt_y;
     integer i;
+
+    assign font_x_res = (pix_x - txt_x) >> 1;
+    assign font_y_res = (pix_y - txt_y) >> 1;
 
     font_rom font_rom_result (
         .clk(clk_in),
@@ -103,42 +106,16 @@ module lcd_pic(
     );
 
     always @(*) begin
-        for (i = 0; i < 32; i = i + 1)
-            result_str[i] = " ";
-
-        if (input_val != 0) begin
-            result_str[0] = input_val;
-            result_str[1] = " ";
-        end
-        if (op_char != 0) begin
-            result_str[2] = op_char;
-            result_str[3] = " ";
-        end
-        if (calc_done) begin
-            result_str[4] = "=";
-            result_str[5] = " ";
-            result_str[6]  = ((result / 10000) % 10) + "0";
-            result_str[7]  = ((result / 1000) % 10) + "0";
-            result_str[8]  = ((result / 100) % 10) + "0";
-            result_str[9]  = ((result / 10) % 10) + "0";
-            result_str[10] = (result % 10) + "0";
-        end
-    end
-
-    // LCD 픽셀 색 결정
-    always @(*) begin
         pix_data = WHITE;
         is_result_area = 0;
-        font_x_res = 0;
-        font_y_res = 0;
-        current_char = 0;
+        current_char = " ";
 
         if (!sys_rst_n)
             pix_data = BLACK;
         else if (pix_y < 100)
             pix_data = YELLOW;
         else begin
-            // 결과 출력 영역 (폰트 2배 확대)
+            // 결과 표시 시작 좌표
             txt_x = ORIGIN_X + 4 * (BTN_W + GAP_X) + 40;
             txt_y = ORIGIN_Y;
 
@@ -147,9 +124,24 @@ module lcd_pic(
                     pix_x <  txt_x + i * FONT_W * 2 + FONT_W * 2 &&
                     pix_y >= txt_y &&
                     pix_y <  txt_y + FONT_H * 2) begin
-                    font_x_res = (pix_x - (txt_x + i * FONT_W * 2)) >> 1;
-                    font_y_res = (pix_y - txt_y) >> 1;
-                    current_char = result_str[i];
+
+                    case (i)
+                        0: current_char = (input_val > 0) ? ((input_val / 100) % 10) + "0" : " ";
+                        1: current_char = (input_val > 9) ? ((input_val / 10) % 10) + "0" : " ";
+                        2: current_char = ((input_val) % 10) + "0";
+                        3: current_char = " ";
+                        4: current_char = (op_char != 0) ? op_char : " ";
+                        5: current_char = " ";
+                        6: current_char = (calc_done) ? "=" : " ";
+                        7: current_char = " ";
+                        8: current_char = (calc_done) ? ((result / 10000) % 10 + "0") : " ";
+                        9: current_char = (calc_done) ? ((result / 1000)  % 10 + "0") : " ";
+                        10: current_char = (calc_done) ? ((result / 100)   % 10 + "0") : " ";
+                        11: current_char = (calc_done) ? ((result / 10)    % 10 + "0") : " ";
+                        12: current_char = (calc_done) ? ((result)         % 10 + "0") : " ";
+                        default: current_char = " ";
+                    endcase
+
                     is_result_area = 1;
                 end
             end
