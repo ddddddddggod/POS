@@ -47,7 +47,7 @@ module cursor_ctrl (
             if (up_pulse    && cursor_y > 0) cursor_y <= cursor_y - 1;
             if (down_pulse  && cursor_y < 3) cursor_y <= cursor_y + 1;
             if (left_pulse  && cursor_x > 0) cursor_x <= cursor_x - 1;
-            if (right_pulse && cursor_x < 2) cursor_x <= cursor_x + 1;
+            if (right_pulse && cursor_x < 3) cursor_x <= cursor_x + 1;
         end
     end
 
