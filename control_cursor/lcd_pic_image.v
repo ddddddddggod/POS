@@ -1,17 +1,17 @@
-`timescale 1ns / 1ps
-
 module lcd_pic_image (
     input wire clk_in,
     input wire sys_rst_n,
+    input wire [3:0] sw,
     input wire [10:0] pix_x,
     input wire [10:0] pix_y,
     output reg [23:0] pix_data
 );
 
-    parameter IMG_HEIGHT = 249;
-    parameter IMG_WIDTH = 345;
-    parameter ORIGIN_X = 100;
-    parameter ORIGIN_Y = 60;
+    // Image 관련 파라미터
+    parameter IMG_HEIGHT = 306;
+    parameter IMG_WIDTH  = 211;
+    parameter ORIGIN_X   = 120;
+    parameter ORIGIN_Y   = 80;
 
     wire [16:0] rom_addr;
     wire [23:0] rom_data;
@@ -39,12 +39,25 @@ module lcd_pic_image (
 
     assign rom_addr = read_addr;
 
+    wire region_sw0 = sw[0] && (pix_x >= 120) && (pix_x < 260) && (pix_y >= 380) && (pix_y < 390);
+    wire region_sw1 = sw[1] && (pix_x >= 260) && (pix_x < 400) && (pix_y >= 380) && (pix_y < 390);
+    wire region_sw2 = sw[2] && (pix_x >= 400) && (pix_x < 540) && (pix_y >= 380) && (pix_y < 390);
+    wire region_sw3 = sw[3] && (pix_x >= 540) && (pix_x < 680) && (pix_y >= 380) && (pix_y < 390);
+
     always @(*) begin
-        if (!sys_rst_n)
-            pix_data = 24'h000000;
-        else if (valid_region)
-            pix_data = rom_data;
+    if (!sys_rst_n)
+        pix_data = 24'h000000; // 리셋 시 검은색
+    else if ((pix_x >= 120) && (pix_x < 680) && (pix_y >= 380) && (pix_y < 390)) begin
+        // 사각형 영역 내에서 스위치 상태에 따라 색 결정
+        if (region_sw0 || region_sw1 || region_sw2 || region_sw3)
+            pix_data = 24'hFFFFFF;  // 스위치 LOW
         else
-            pix_data = 24'h0000000; // 배경색
+            pix_data = 24'hFF0000;  // 스위치 HIGH
     end
+    else if (valid_region)
+        pix_data = rom_data; // 이미지 데이터
+    else
+        pix_data = 24'h000000; // 배경은 검은색
+end
+
 endmodule
