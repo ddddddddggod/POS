@@ -52,3 +52,19 @@ module cursor_ctrl (
     end
 
 endmodule
+    end
+
+    // 커서 위치 업데이트 (x: 0~2, y: 0~3)
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            cursor_x <= 4'd1;
+            cursor_y <= 4'd1;
+        end else begin
+            if (up_pulse    && cursor_y > 0) cursor_y <= cursor_y - 1;
+            if (down_pulse  && cursor_y < 3) cursor_y <= cursor_y + 1;
+            if (left_pulse  && cursor_x > 0) cursor_x <= cursor_x - 1;
+            if (right_pulse && cursor_x < 3) cursor_x <= cursor_x + 1;
+        end
+    end
+
+endmodule
