@@ -8,7 +8,8 @@ module lcd_pic(
     input wire [3:0] cursor_x,
     input wire [3:0] cursor_y,
 
-    input wire [7:0] input_val,
+    input wire [15:0] input_val_a,
+    input wire [15:0] input_val_b,
     input wire [15:0] result,
     input wire [7:0] op_char,
     input wire calc_done,
@@ -56,7 +57,7 @@ module lcd_pic(
         end
     end
 
-    // 버튼 내 문자 매핑
+    // 버튼 안 문자 매핑
     reg [7:0] char_code;
     always @(*) begin
         case ({btn_row, btn_col})
@@ -86,14 +87,17 @@ module lcd_pic(
         .font_line(font_bits)
     );
 
-    // 결과 문자열 구성
-    reg [7:0] result_str[0:31];
+    // 결과 문자열 출력용 문자 1개씩
     reg [7:0] current_char;
-    reg [10:0] txt_x, txt_y;
-    reg [3:0] font_x_res, font_y_res;
+    wire [3:0] font_x_res;
+    wire [3:0] font_y_res;
     wire [7:0] font_line_res;
     reg is_result_area;
+    reg [10:0] txt_x, txt_y;
     integer i;
+
+    assign font_x_res = (pix_x - txt_x) >> 1;
+    assign font_y_res = (pix_y - txt_y) >> 1;
 
     font_rom font_rom_result (
         .clk(clk_in),
@@ -102,65 +106,94 @@ module lcd_pic(
         .font_line(font_line_res)
     );
 
-    always @(*) begin
-        for (i = 0; i < 32; i = i + 1)
-            result_str[i] = " ";
+    // 자리수 숫자 구하는 함수 (0: 1의 자리, 1: 10의 자리 ...)
+    function [7:0] get_digit_char;
+        input [15:0] val;
+        input [2:0] digit_idx;
+        reg [15:0] tmp;
+        begin
+            tmp = val;
+            case (digit_idx)
+                3'd0: get_digit_char = (tmp % 10) + "0";
+                3'd1: get_digit_char = ((tmp / 10) % 10) + "0";
+                3'd2: get_digit_char = ((tmp / 100) % 10) + "0";
+                3'd3: get_digit_char = ((tmp / 1000) % 10) + "0";
+                3'd4: get_digit_char = ((tmp / 10000) % 10) + "0";
+                default: get_digit_char = " ";
+            endcase
+        end
+    endfunction
 
-        if (input_val != 0) begin
-            result_str[0] = input_val;
-            result_str[1] = " ";
-        end
-        if (op_char != 0) begin
-            result_str[2] = op_char;
-            result_str[3] = " ";
-        end
-        if (calc_done) begin
-            result_str[4] = "=";
-            result_str[5] = " ";
-            result_str[6]  = ((result / 10000) % 10) + "0";
-            result_str[7]  = ((result / 1000) % 10) + "0";
-            result_str[8]  = ((result / 100) % 10) + "0";
-            result_str[9]  = ((result / 10) % 10) + "0";
-            result_str[10] = (result % 10) + "0";
-        end
-    end
-
-    // LCD 픽셀 색 결정
     always @(*) begin
         pix_data_ui = WHITE;
         is_result_area = 0;
-        font_x_res = 0;
-        font_y_res = 0;
-        current_char = 0;
+        current_char = " ";
 
-        if (!sys_rst_n)
+        if (!sys_rst_n) begin
             pix_data_ui = BLACK;
-        else if (pix_y < 100)
+        end else if (pix_y < 100) begin
             pix_data_ui = YELLOW;
-        else begin
-            // 결과 출력 영역 (폰트 2배 확대)
+        end else begin
+            // 결과 표시 시작 좌표
             txt_x = ORIGIN_X + 4 * (BTN_W + GAP_X) + 40;
             txt_y = ORIGIN_Y;
 
-            for (i = 0; i < 16; i = i + 1) begin
+            // 19글자(0~18)까지 위치별로 문자 출력
+            for (i = 0; i < 19; i = i + 1) begin
                 if (pix_x >= txt_x + i * FONT_W * 2 &&
                     pix_x <  txt_x + i * FONT_W * 2 + FONT_W * 2 &&
                     pix_y >= txt_y &&
                     pix_y <  txt_y + FONT_H * 2) begin
-                    font_x_res = (pix_x - (txt_x + i * FONT_W * 2)) >> 1;
-                    font_y_res = (pix_y - txt_y) >> 1;
-                    current_char = result_str[i];
+
+                    case (i)
+                        // input_val_a 최대 5자리 (앞자리부터 출력, 없으면 공백)
+                        0: current_char = (input_val_a >= 10000) ? get_digit_char(input_val_a,4) : " ";
+                        1: current_char = (input_val_a >= 1000)  ? get_digit_char(input_val_a,3) : " ";
+                        2: current_char = (input_val_a >= 100)   ? get_digit_char(input_val_a,2) : " ";
+                        3: current_char = (input_val_a >= 10)    ? get_digit_char(input_val_a,1) : " ";
+                        4: current_char = (input_val_a > 0)      ? get_digit_char(input_val_a,0) : " ";
+
+                        5: current_char = " "; // 공백
+
+                        // 연산자 출력
+                        6: current_char = (op_char != 0) ? op_char : " ";
+
+                        7: current_char = " "; // 공백
+
+                        // input_val_b 최대 5자리
+                        8:  current_char = (input_val_b >= 10000) ? get_digit_char(input_val_b,4) : " ";
+                        9:  current_char = (input_val_b >= 1000)  ? get_digit_char(input_val_b,3) : " ";
+                        10: current_char = (input_val_b >= 100)   ? get_digit_char(input_val_b,2) : " ";
+                        11: current_char = (input_val_b >= 10)    ? get_digit_char(input_val_b,1) : " ";
+                        12: current_char = (input_val_b > 0)      ? get_digit_char(input_val_b,0) : " ";
+
+                        // '=' 출력 (계산 완료 시에만)
+                        13: current_char = (calc_done) ? "=" : " ";
+
+                        // 결과 최대 5자리 출력 (계산 완료 시에만)
+                        14: current_char = (calc_done) ? get_digit_char(result,4) : " ";
+                        15: current_char = (calc_done) ? get_digit_char(result,3) : " ";
+                        16: current_char = (calc_done) ? get_digit_char(result,2) : " ";
+                        17: current_char = (calc_done) ? get_digit_char(result,1) : " ";
+                        18: current_char = (calc_done) ? get_digit_char(result,0) : " ";
+
+                        default: current_char = " ";
+                    endcase
+
                     is_result_area = 1;
                 end
             end
 
+            // 문자 픽셀 그리기 (결과 영역)
             if (is_result_area && font_line_res[7 - font_x_res])
                 pix_data_ui = RED;
+            // 버튼 문자 그리기
             else if (pix_x >= char_left && pix_x < char_left + 16 &&
                      pix_y >= char_top && pix_y < char_top + 16 &&
                      font_x < 8 && font_y < 8 &&
                      font_bits[7 - font_x])
                 pix_data_ui = BLACK;
+            // 커서 위치 오렌지 표시
             else if (in_button && (btn_row == cursor_y && btn_col == cursor_x))
                 pix_data_ui = ORANGE;
             else if (in_button)
