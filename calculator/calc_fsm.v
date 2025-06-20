@@ -4,7 +4,7 @@ module calc_fsm(
     input wire clk,
     input wire rst_n,
     input wire btn_valid,
-    input wire [7:0] btn_char,     // '0' ~ '9', '+', '-', '*', '=', 'C'
+    input wire [7:0] btn_char,     // '0' ~ '9', '+', '-', '*', '=', 'C', 8'h08(BACKSPACE)
 
     output reg [127:0] disp_str_flat,   // 전체 입력 문자열 (16자)
     output reg [7:0] op_char,           // 현재 연산자
@@ -88,85 +88,94 @@ module calc_fsm(
         end else if (btn_valid) begin
             result_valid <= 0;
 
-            // Store to display
-            if (disp_index < 16) begin
-                disp_str[disp_index] <= btn_char;
-                disp_index <= disp_index + 1;
-            end
+            if (btn_char == 8'h08) begin  // BACKSPACE
+                if (disp_index > 0) begin
+                    disp_index <= disp_index - 1;
+                    disp_str[disp_index - 1] <= " ";
+                end
+                if (input_val > 0)
+                    input_val <= input_val / 10;
+            end else begin
+                // Store to display
+                if (disp_index < 16) begin
+                    disp_str[disp_index] <= btn_char;
+                    disp_index <= disp_index + 1;
+                end
 
-            case (state)
-                S_IDLE: begin
-                    if (btn_char >= "0" && btn_char <= "9") begin
-                        input_val <= input_val * 10 + (btn_char - "0");
-                    end else if ((btn_char == "+" || btn_char == "-" || btn_char == "*") && input_val != 0) begin
-                        operand_stack[operand_top] <= input_val;
-                        operand_top <= operand_top + 1;
-                        input_val <= 0;
+                case (state)
+                    S_IDLE: begin
+                        if (btn_char >= "0" && btn_char <= "9") begin
+                            input_val <= input_val * 10 + (btn_char - "0");
+                        end else if ((btn_char == "+" || btn_char == "-" || btn_char == "*") && input_val != 0) begin
+                            operand_stack[operand_top] <= input_val;
+                            operand_top <= operand_top + 1;
+                            input_val <= 0;
 
-                        if (operator_top > 0 && precedence(operator_stack[operator_top - 1]) >= precedence(btn_char)) begin
-                            state <= S_EVAL;
-                            op_char <= btn_char;  // temporarily store new op
-                        end else begin
-                            operator_stack[operator_top] <= btn_char;
-                            operator_top <= operator_top + 1;
+                            if (operator_top > 0 && precedence(operator_stack[operator_top - 1]) >= precedence(btn_char)) begin
+                                state <= S_EVAL;
+                                op_char <= btn_char;  // temporarily store new op
+                            end else begin
+                                operator_stack[operator_top] <= btn_char;
+                                operator_top <= operator_top + 1;
+                            end
+                        end else if (btn_char == "=" && input_val != 0) begin
+                            operand_stack[operand_top] <= input_val;
+                            operand_top <= operand_top + 1;
+                            input_val <= 0;
+                            state <= S_EQUAL;
+                        end else if (btn_char == "C") begin
+                            state <= S_CLEAR;
                         end
-                    end else if (btn_char == "=" && input_val != 0) begin
-                        operand_stack[operand_top] <= input_val;
-                        operand_top <= operand_top + 1;
-                        input_val <= 0;
-                        state <= S_EQUAL;
-                    end else if (btn_char == "C") begin
-                        state <= S_CLEAR;
                     end
-                end
 
-                S_EVAL: begin
-                    eval_once();
-                    if (operator_top == 0 || precedence(operator_stack[operator_top - 1]) < precedence(op_char)) begin
-                        operator_stack[operator_top] <= op_char;
-                        operator_top <= operator_top + 1;
-                        state <= S_IDLE;
-                    end
-                end
-
-                S_EQUAL: begin
-                    if (operator_top > 0) begin
+                    S_EVAL: begin
                         eval_once();
-                    end else begin
-                        result_value <= operand_stack[0];
-                        result_valid <= 1'b1;
-                        state <= S_NEXT;
+                        if (operator_top == 0 || precedence(operator_stack[operator_top - 1]) < precedence(op_char)) begin
+                            operator_stack[operator_top] <= op_char;
+                            operator_top <= operator_top + 1;
+                            state <= S_IDLE;
+                        end
                     end
-                end
 
-                S_NEXT: begin
-                    if (btn_char >= "0" && btn_char <= "9") begin
+                    S_EQUAL: begin
+                        if (operator_top > 0) begin
+                            eval_once();
+                        end else begin
+                            result_value <= operand_stack[0];
+                            result_valid <= 1'b1;
+                            state <= S_NEXT;
+                        end
+                    end
+
+                    S_NEXT: begin
+                        if (btn_char >= "0" && btn_char <= "9") begin
+                            operand_top <= 0;
+                            operator_top <= 0;
+                            disp_index <= 1;
+                            for (i = 0; i < 16; i = i + 1)
+                                disp_str[i] <= " ";
+                            disp_str[0] <= btn_char;
+                            input_val <= btn_char - "0";
+                            state <= S_IDLE;
+                        end else if (btn_char == "C") begin
+                            state <= S_CLEAR;
+                        end
+                    end
+
+                    S_CLEAR: begin
                         operand_top <= 0;
                         operator_top <= 0;
-                        disp_index <= 1;
+                        op_char <= 0;
+                        input_val <= 0;
+                        result_value <= 0;
+                        result_valid <= 0;
+                        disp_index <= 0;
                         for (i = 0; i < 16; i = i + 1)
                             disp_str[i] <= " ";
-                        disp_str[0] <= btn_char;
-                        input_val <= btn_char - "0";
                         state <= S_IDLE;
-                    end else if (btn_char == "C") begin
-                        state <= S_CLEAR;
                     end
-                end
-
-                S_CLEAR: begin
-                    operand_top <= 0;
-                    operator_top <= 0;
-                    op_char <= 0;
-                    input_val <= 0;
-                    result_value <= 0;
-                    result_valid <= 0;
-                    disp_index <= 0;
-                    for (i = 0; i < 16; i = i + 1)
-                        disp_str[i] <= " ";
-                    state <= S_IDLE;
-                end
-            endcase
+                endcase
+            end
         end
     end
 endmodule
