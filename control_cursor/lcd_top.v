@@ -37,15 +37,31 @@ module lcd_top(
         .locked(locked)
     );
 
+    // === Debounce + One-Pulse for All Buttons ===
+    wire btn_up_db, btn_down_db, btn_left_db, btn_right_db, btn_center_db;
+    wire btn_up_pulse, btn_down_pulse, btn_left_pulse, btn_right_pulse, btn_center_pulse;
+
+    debouncen db_up    (.clk(lcd_clk_33m), .rst_n(rst_n), .btn_in(btn_up),     .btn_out(btn_up_db));
+    debouncen db_down  (.clk(lcd_clk_33m), .rst_n(rst_n), .btn_in(btn_down),   .btn_out(btn_down_db));
+    debouncen db_left  (.clk(lcd_clk_33m), .rst_n(rst_n), .btn_in(btn_left),   .btn_out(btn_left_db));
+    debouncen db_right (.clk(lcd_clk_33m), .rst_n(rst_n), .btn_in(btn_right),  .btn_out(btn_right_db));
+    debouncen db_center(.clk(lcd_clk_33m), .rst_n(rst_n), .btn_in(btn_center), .btn_out(btn_center_db));
+
+    one_pulsen op_up    (.clk(lcd_clk_33m), .rst_n(rst_n), .signal_in(~btn_up_db),    .pulse_out(btn_up_pulse));
+    one_pulsen op_down  (.clk(lcd_clk_33m), .rst_n(rst_n), .signal_in(~btn_down_db),  .pulse_out(btn_down_pulse));
+    one_pulsen op_left  (.clk(lcd_clk_33m), .rst_n(rst_n), .signal_in(~btn_left_db),  .pulse_out(btn_left_pulse));
+    one_pulsen op_right (.clk(lcd_clk_33m), .rst_n(rst_n), .signal_in(~btn_right_db), .pulse_out(btn_right_pulse));
+    one_pulsen op_center(.clk(lcd_clk_33m), .rst_n(rst_n), .signal_in(~btn_center_db),.pulse_out(btn_center_pulse));
+
     // === Cursor Control ===
     wire [3:0] cursor_x, cursor_y;
     cursor_ctrl cursor_ctrl_inst (
         .clk(lcd_clk_33m),
         .rst_n(rst_n),
-        .btn_up(btn_up),
-        .btn_down(btn_down),
-        .btn_left(btn_left),
-        .btn_right(btn_right),
+        .btn_up(btn_up_pulse),
+        .btn_down(btn_down_pulse),
+        .btn_left(btn_left_pulse),
+        .btn_right(btn_right_pulse),
         .cursor_x(cursor_x),
         .cursor_y(cursor_y)
     );
@@ -56,15 +72,15 @@ module lcd_top(
     button_input button_input_inst (
         .clk(lcd_clk_33m),
         .rst_n(rst_n),
+        .btn_enter(btn_center_pulse),
         .cursor_x(cursor_x),
         .cursor_y(cursor_y),
-        .btn_enter(btn_center),
         .btn_char(btn_char),
         .btn_valid(btn_valid)
     );
 
-    // === Mode Select from dip_sw[7] ===
-    wire mode_sel = dip_sw[7];  // 0: 메뉴 가격 합산 모드, 1: 직접 입력 계산 모드
+    // === Mode Select ===
+    wire mode_sel = dip_sw[7];
 
     // === FSM Calculator ===
     wire [127:0] disp_str_flat;
@@ -78,7 +94,7 @@ module lcd_top(
         .rst_n(rst_n),
         .btn_valid(btn_valid),
         .btn_char(btn_char),
-        .mode_sel(mode_sel),       // mode_sel 신호 추가
+        .mode_sel(mode_sel),
         .disp_str_flat(disp_str_flat),
         .op_char(op_char),
         .result_value(result),
@@ -93,7 +109,7 @@ module lcd_top(
         else display_mode <= dip_sw[0];
     end
 
-    // === Menu Price (DIP Switch) ===
+    // === Menu Price ===
     reg [15:0] menu_prices [0:3];
     initial begin
         menu_prices[0] = 16'd10000;
@@ -138,7 +154,6 @@ module lcd_top(
         end
     end
 
-    // === ASCII 숫자 변환 Task ===
     reg [7:0] num_a0, num_a1, num_a2, num_a3, num_a4;
     reg [7:0] num_b0, num_b1, num_b2, num_b3, num_b4;
 
@@ -154,51 +169,34 @@ module lcd_top(
         end
     endtask
 
-    // === Auto Display Handling ===
     reg [127:0] auto_disp_str_flat;
     reg [23:0] auto_result;
     reg auto_calc_done;
 
     always @(*) begin
         if (mode_sel == 0) begin
-            // 메뉴 가격 합산 모드
             if (num_selected == 0) begin
                 auto_disp_str_flat = disp_str_flat;
                 auto_result = result;
                 auto_calc_done = calc_done;
             end else if (num_selected == 1) begin
                 encode_number(first_price, num_a0, num_a1, num_a2, num_a3, num_a4);
-                auto_disp_str_flat = {
-                    "=", " ",
-                    num_a4, num_a3, num_a2, num_a1, num_a0,
-                    " ", " ", " ", " ", " ", " ", " ", " "
-                };
+                auto_disp_str_flat = { "=", " ", num_a4, num_a3, num_a2, num_a1, num_a0, " ", " ", " ", " ", " ", " ", " ", " " };
                 auto_result = first_price;
                 auto_calc_done = 1'b1;
             end else if (num_selected == 2) begin
                 encode_number(first_price, num_a0, num_a1, num_a2, num_a3, num_a4);
                 encode_number(second_price, num_b0, num_b1, num_b2, num_b3, num_b4);
-
-                auto_disp_str_flat = {
-                    "=", " ",
-                    num_b4, num_b3, num_b2, num_b1, num_b0,
-                    " ", "+", " ",
-                    num_a4, num_a3, num_a2, num_a1, num_a0
-                };
+                auto_disp_str_flat = { "=", " ", num_b4, num_b3, num_b2, num_b1, num_b0, " ", "+", " ", num_a4, num_a3, num_a2, num_a1, num_a0 };
                 auto_result = first_price + second_price;
                 auto_calc_done = 1'b1;
             end else begin
                 encode_number(sum_price, num_a0, num_a1, num_a2, num_a3, num_a4);
-                auto_disp_str_flat = {
-                    "=", " ",
-                    num_a4, num_a3, num_a2, num_a1, num_a0,
-                    " ", " ", " ", " ", " ", " ", " ", " ", " "
-                };
+                auto_disp_str_flat = { "=", " ", num_a4, num_a3, num_a2, num_a1, num_a0, " ", " ", " ", " ", " ", " ", " ", " " };
                 auto_result = sum_price;
                 auto_calc_done = 1'b1;
             end
         end else begin
-            // 직접 입력 계산 모드
             auto_disp_str_flat = disp_str_flat;
             auto_result = result;
             auto_calc_done = calc_done;
@@ -209,7 +207,6 @@ module lcd_top(
     wire [23:0]  display_result        = auto_result;
     wire         display_calc_done     = auto_calc_done;
 
-    // === LCD Rendering (UI & Image) ===
     wire [10:0] pix_x, pix_y;
     wire [23:0] pix_data_ui, pix_data_img;
     wire [23:0] pix_data = (display_mode == 1'b0) ? pix_data_ui : pix_data_img;
