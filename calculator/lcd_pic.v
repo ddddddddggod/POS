@@ -9,7 +9,7 @@ module lcd_pic(
     input wire [3:0] cursor_y,
 
     input wire [127:0] disp_str_flat,  // 입력 문자열 (16자)
-    input wire [15:0] result,          // 연산 결과
+    input wire [23:0] result,          // 연산 결과 (8자리까지 지원)
     input wire calc_done,              // '=' 눌렸는지 여부
 
     output reg [23:0] pix_data
@@ -137,17 +137,20 @@ module lcd_pic(
                 end
             end
 
-            // 결과 출력
+            // 결과 출력 (최대 8자리 지원)
             if (calc_done) begin
-                for (k = 0; k < 5; k = k + 1) begin
+                for (k = 0; k < 8; k = k + 1) begin
                     if (pix_x >= TEXT_X + k * 16 && pix_x < TEXT_X + (k + 1) * 16 &&
                         pix_y >= RESULT_Y && pix_y < RESULT_Y + 16) begin
                         case (k)
-                            0: current_char = (result / 10000) % 10 + "0";
-                            1: current_char = (result / 1000) % 10 + "0";
-                            2: current_char = (result / 100) % 10 + "0";
-                            3: current_char = (result / 10) % 10 + "0";
-                            4: current_char = result % 10 + "0";
+                            0: current_char = (result / 10000000) % 10 + "0";
+                            1: current_char = (result / 1000000) % 10 + "0";
+                            2: current_char = (result / 100000) % 10 + "0";
+                            3: current_char = (result / 10000) % 10 + "0";
+                            4: current_char = (result / 1000) % 10 + "0";
+                            5: current_char = (result / 100) % 10 + "0";
+                            6: current_char = (result / 10) % 10 + "0";
+                            7: current_char = result % 10 + "0";
                         endcase
                         if (font_line_result[7 - font_x_disp])
                             pix_data = RED;
