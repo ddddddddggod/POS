@@ -8,7 +8,7 @@ module lcd_pic(
     input wire [3:0] cursor_x,
     input wire [3:0] cursor_y,
 
-    input wire [127:0] disp_str_flat,  // 입력 문자열 (16자)
+    input wire [255:0] disp_str_flat,  // 입력 문자열 (32자)
     input wire [23:0] result,          // 연산 결과 (8자리까지 지원)
     input wire calc_done,              // '=' 눌렸는지 여부
 
@@ -16,10 +16,10 @@ module lcd_pic(
 );
 
     // 문자열 배열로 분해
-    wire [7:0] disp_str [0:15];
+    wire [7:0] disp_str [0:31];
     genvar i;
     generate
-        for (i = 0; i < 16; i = i + 1) begin : UNPACK
+        for (i = 0; i < 32; i = i + 1) begin : UNPACK
             assign disp_str[i] = disp_str_flat[i*8 +: 8];
         end
     endgenerate
@@ -30,8 +30,9 @@ module lcd_pic(
     localparam ORIGIN_X = 100, ORIGIN_Y = 150;
     localparam FONT_W = 8, FONT_H = 8;
     localparam TEXT_X = ORIGIN_X + 4 * (BTN_W + GAP_X) + 40;
-    localparam INPUT_Y = ORIGIN_Y;
-    localparam RESULT_Y = ORIGIN_Y + 40;
+    localparam INPUT_Y1 = ORIGIN_Y;
+    localparam INPUT_Y2 = ORIGIN_Y + 20;
+    localparam RESULT_Y = ORIGIN_Y + 50; // 두 줄 아래에 결과 출력
 
     // 색상 정의
     localparam RED    = 24'hFF0000,
@@ -76,7 +77,7 @@ module lcd_pic(
         endcase
     end
 
-    // 버튼 내부 렌더링용 폰트 좌표
+    // 폰트 좌표 계산
     reg [10:0] char_left, char_top;
     wire [3:0] font_x = (pix_x - char_left) >> 1;
     wire [3:0] font_y = (pix_y - char_top) >> 1;
@@ -94,26 +95,22 @@ module lcd_pic(
         .font_line(font_bits)
     );
 
-    // 입력 & 결과 렌더링용
+    // 입력 및 결과 문자열 표시용
     reg [7:0] current_char;
     wire [3:0] font_x_disp = (pix_x - TEXT_X) >> 1;
-    wire [3:0] font_y_disp = (pix_y - INPUT_Y) >> 1;
+    wire [3:0] font_y1 = (pix_y - INPUT_Y1) >> 1;
+    wire [3:0] font_y2 = (pix_y - INPUT_Y2) >> 1;
     wire [3:0] font_y_result = (pix_y - RESULT_Y) >> 1;
-    wire [7:0] font_line_disp;
-    wire [7:0] font_line_result;
+    wire [7:0] font_line_disp1, font_line_disp2, font_line_result;
 
-    font_rom font_rom_disp (
-        .clk(clk_in),
-        .char_code(current_char),
-        .row(font_y_disp),
-        .font_line(font_line_disp)
+    font_rom font_rom_disp1 (
+        .clk(clk_in), .char_code(current_char), .row(font_y1), .font_line(font_line_disp1)
     );
-
+    font_rom font_rom_disp2 (
+        .clk(clk_in), .char_code(current_char), .row(font_y2), .font_line(font_line_disp2)
+    );
     font_rom font_rom_result (
-        .clk(clk_in),
-        .char_code(current_char),
-        .row(font_y_result),
-        .font_line(font_line_result)
+        .clk(clk_in), .char_code(current_char), .row(font_y_result), .font_line(font_line_result)
     );
 
     integer k;
@@ -127,17 +124,26 @@ module lcd_pic(
         else if (pix_y < 100)
             pix_data = YELLOW;
         else begin
-            // 입력 문자열 출력
+            // 첫 줄 입력 (0~15)
             for (k = 0; k < 16; k = k + 1) begin
                 if (pix_x >= TEXT_X + k * 16 && pix_x < TEXT_X + (k + 1) * 16 &&
-                    pix_y >= INPUT_Y && pix_y < INPUT_Y + 16) begin
+                    pix_y >= INPUT_Y1 && pix_y < INPUT_Y1 + 16) begin
                     current_char = disp_str[k];
-                    if (font_line_disp[7 - font_x_disp])
+                    if (font_line_disp1[7 - font_x_disp])
+                        pix_data = RED;
+                end
+            end
+            // 둘째 줄 입력 (16~31)
+            for (k = 0; k < 16; k = k + 1) begin
+                if (pix_x >= TEXT_X + k * 16 && pix_x < TEXT_X + (k + 1) * 16 &&
+                    pix_y >= INPUT_Y2 && pix_y < INPUT_Y2 + 16) begin
+                    current_char = disp_str[k + 16];
+                    if (font_line_disp2[7 - font_x_disp])
                         pix_data = RED;
                 end
             end
 
-            // 결과 출력 (최대 8자리 지원)
+            // 결과 출력 (최대 8자리)
             if (calc_done) begin
                 for (k = 0; k < 8; k = k + 1) begin
                     if (pix_x >= TEXT_X + k * 16 && pix_x < TEXT_X + (k + 1) * 16 &&
@@ -161,8 +167,7 @@ module lcd_pic(
             // 버튼 폰트 출력
             if (pix_x >= char_left && pix_x < char_left + 16 &&
                 pix_y >= char_top && pix_y < char_top + 16 &&
-                font_x < 8 && font_y < 8 &&
-                font_bits[7 - font_x])
+                font_x < 8 && font_y < 8 && font_bits[7 - font_x])
                 pix_data = BLACK;
             else if (in_button && (btn_row == cursor_y && btn_col == cursor_x))
                 pix_data = ORANGE;
