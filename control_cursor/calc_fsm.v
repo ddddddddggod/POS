@@ -4,125 +4,195 @@ module calc_fsm(
     input wire clk,
     input wire rst_n,
     input wire btn_valid,
-    input wire [7:0] btn_char,
+    input wire [7:0] btn_char,  // '0' ~ '9', '+', '-', '*', '=', 'C'
+    input wire mode_sel,
 
-    output reg [7:0] disp_char0,
-    output reg [7:0] disp_char1,
-    output reg [7:0] op_char,
-    output reg [15:0] input_val_a,
-    output reg [15:0] input_val_b,
-    output reg [15:0] result_value,
-    output reg result_valid
+    output reg [127:0] disp_str_flat,   // 디스플레이 문자열 (16자)
+    output reg [7:0] op_char,           // 마지막 연산자
+    output reg [23:0] result_value,     // 계산 결과
+    output reg        result_valid,     // 결과 유효 신호
+    output reg [15:0] input_val         // 현재 숫자 입력 중 값
 );
 
-    // === [수정된 상태 정의] ===
-    parameter IDLE     = 2'b00;
-    parameter INPUT_A  = 2'b01;
-    parameter INPUT_OP = 2'b10;
-    parameter INPUT_B  = 2'b11;
-    parameter DONE     = 2'b00;  // DONE은 상태 리셋에 사용 (겹치지 않도록 로직 내에서 주의)
+    // FSM 상태
+    localparam S_IDLE   = 3'd0;
+    localparam S_INPUT  = 3'd1;
+    localparam S_OP     = 3'd2;
+    localparam S_EVAL   = 3'd3;
+    localparam S_RESULT = 3'd4;
+    localparam S_CLEAR  = 3'd5;
 
-    reg [1:0] current_state, next_state;
+    reg [2:0] state;
 
-    // === 임시 저장 ===
-    reg [15:0] temp_a;
-    reg [15:0] temp_b;
-    reg [7:0]  temp_op;
+    // 계산 스택
+    reg [15:0] operand_stack [0:7];
+    reg [7:0]  operator_stack [0:7];
+    reg [3:0] operand_top;
+    reg [3:0] operator_top;
 
-    // === 상태 전이 ===
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n)
-            current_state <= IDLE;
-        else
-            current_state <= next_state;
-    end
+    // 디스플레이 버퍼
+    reg [7:0] disp_str [0:15];
+    reg [4:0] disp_index;
 
-    // === 상태 결정 ===
+    integer i;
+
+    // 디스플레이 플래튼화
     always @(*) begin
-        next_state = current_state;
-        case (current_state)
-            IDLE:
-                if (btn_valid && btn_char >= "0" && btn_char <= "9")
-                    next_state = INPUT_A;
-            INPUT_A:
-                if (btn_valid && (btn_char == "+" || btn_char == "-" || btn_char == "*"))
-                    next_state = INPUT_OP;
-            INPUT_OP:
-                if (btn_valid && btn_char >= "0" && btn_char <= "9")
-                    next_state = INPUT_B;
-            INPUT_B:
-                if (btn_valid && btn_char == "=")
-                    next_state = DONE;
-            DONE:
-                if (btn_valid)
-                    next_state = IDLE;
-        endcase
+        for (i = 0; i < 16; i = i + 1)
+            disp_str_flat[i*8 +: 8] = disp_str[i];
     end
 
-    // === 상태에 따른 동작 ===
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            input_val_a   <= 0;
-            input_val_b   <= 0;
-            op_char       <= 0;
+    // 연산자 우선순위 ( * > +,- )
+    function [0:0] precedence;
+        input [7:0] op;
+        begin
+            precedence = (op == "*") ? 1'b1 : 1'b0;
+        end
+    endfunction
+
+    // 연산 수행 함수
+    function [15:0] apply_operator;
+        input [7:0] op;
+        input [15:0] a, b;
+        begin
+            case (op)
+                "+": apply_operator = a + b;
+                "-": apply_operator = a - b;
+                "*": apply_operator = a * b;
+                default: apply_operator = 0;
+            endcase
+        end
+    endfunction
+
+    // 한 번 연산 수행
+    task eval_once;
+        begin
+            if (operand_top > 1 && operator_top > 0) begin
+                operand_stack[operand_top - 2] <= apply_operator(
+                    operator_stack[operator_top - 1],
+                    operand_stack[operand_top - 2],
+                    operand_stack[operand_top - 1]
+                );
+                operand_top  <= operand_top - 1;
+                operator_top <= operator_top - 1;
+            end
+        end
+    endtask
+
+    // 초기화 작업
+    task reset_all;
+        begin
+            operand_top   <= 0;
+            operator_top  <= 0;
+            input_val     <= 0;
             result_value  <= 0;
             result_valid  <= 0;
-            disp_char0    <= 0;
-            disp_char1    <= 0;
-            temp_a        <= 0;
-            temp_b        <= 0;
-            temp_op       <= 0;
+            disp_index    <= 0;
+            for (i = 0; i < 16; i = i + 1)
+                disp_str[i] <= " ";
+            op_char <= 0;
+        end
+    endtask
+
+    // FSM 메인 로직
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            state <= S_IDLE;
+            reset_all();
         end else if (btn_valid) begin
-            case (current_state)
-                IDLE: begin
+            result_valid <= 0;
+
+            if (btn_char == "C") begin
+                state <= S_CLEAR;
+            end else begin
+                // 디스플레이 기록 (Clear 아닐 때만)
+                if (disp_index < 16)
+                    disp_str[disp_index] <= btn_char;
+                if (btn_char != "C" && disp_index < 16)
+                    disp_index <= disp_index + 1;
+            end
+
+            case (state)
+                S_IDLE: begin
                     if (btn_char >= "0" && btn_char <= "9") begin
-                        temp_a <= btn_char - "0";
-                        input_val_a <= btn_char - "0";
-                        disp_char0 <= btn_char;
+                        input_val <= btn_char - "0";
+                        state <= S_INPUT;
                     end
-                    result_valid <= 0;
                 end
-                INPUT_A: begin
+
+                S_INPUT: begin
                     if (btn_char >= "0" && btn_char <= "9") begin
-                        temp_a <= temp_a * 10 + (btn_char - "0");
-                        input_val_a <= temp_a * 10 + (btn_char - "0");
-                        disp_char0 <= btn_char;
+                        input_val <= input_val * 10 + (btn_char - "0");
                     end else if (btn_char == "+" || btn_char == "-" || btn_char == "*") begin
-                        temp_op <= btn_char;
-                        op_char <= btn_char;
-                        disp_char1 <= btn_char;
-                    end
-                end
-                INPUT_OP: begin
-                    if (btn_char >= "0" && btn_char <= "9") begin
-                        temp_b <= btn_char - "0";
-                        input_val_b <= btn_char - "0";
-                    end
-                end
-                INPUT_B: begin
-                    if (btn_char >= "0" && btn_char <= "9") begin
-                        temp_b <= temp_b * 10 + (btn_char - "0");
-                        input_val_b <= temp_b * 10 + (btn_char - "0");
+                        // 숫자 스택에 넣기
+                        operand_stack[operand_top] <= input_val;
+                        operand_top <= operand_top + 1;
+                        input_val <= 0;
+
+                        // 연산자 우선순위 판단 후 처리
+                        if (operator_top > 0 &&
+                            precedence(operator_stack[operator_top - 1]) >= precedence(btn_char)) begin
+                            op_char <= btn_char;
+                            state <= S_EVAL;
+                        end else begin
+                            operator_stack[operator_top] <= btn_char;
+                            operator_top <= operator_top + 1;
+                            op_char <= btn_char;
+                            state <= S_OP;
+                        end
                     end else if (btn_char == "=") begin
-                        case (op_char)
-                            "+": result_value <= temp_a + temp_b;
-                            "-": result_value <= temp_a - temp_b;
-                            "*": result_value <= temp_a * temp_b;
-                            default: result_value <= 16'd0;
-                        endcase
-                        result_valid <= 1;
+                        // 등호 입력시 현재 숫자 스택에 넣고 계산 시작
+                        operand_stack[operand_top] <= input_val;
+                        operand_top <= operand_top + 1;
+                        input_val <= 0;
+                        op_char <= "=";
+                        state <= S_EVAL;
                     end
                 end
-                DONE: begin
-                    result_valid <= 0;
-                    input_val_a <= 0;
-                    input_val_b <= 0;
-                    op_char <= 0;
-                    temp_a <= 0;
-                    temp_b <= 0;
-                    temp_op <= 0;
-                    disp_char0 <= 0;
-                    disp_char1 <= 0;
+
+                S_OP: begin
+                    // 연산자 등록 후 바로 IDLE로
+                    state <= S_IDLE;
+                end
+
+                S_EVAL: begin
+                    eval_once();
+                    if (operator_top == 0 || op_char == "=" ||
+                        precedence(operator_stack[operator_top - 1]) < precedence(op_char)) begin
+                        if (op_char != "=") begin
+                            operator_stack[operator_top] <= op_char;
+                            operator_top <= operator_top + 1;
+                            state <= S_IDLE;
+                        end else begin
+                            // 계산 완료, 결과 출력
+                            result_value <= operand_stack[0];
+                            result_valid <= 1;
+                            state <= S_RESULT;
+                        end
+                    end
+                end
+
+                S_RESULT: begin
+                    // 결과 후 새 입력 시 초기화 및 입력 재개
+                    if (btn_char >= "0" && btn_char <= "9") begin
+                        reset_all();
+                        disp_str[0] <= btn_char;
+                        disp_index <= 1;
+                        input_val <= btn_char - "0";
+                        state <= S_INPUT;
+                    end else if (btn_char == "C") begin
+                        reset_all();
+                        state <= S_IDLE;
+                    end
+                end
+
+                S_CLEAR: begin
+                    reset_all();
+                    state <= S_IDLE;
+                end
+
+                default: begin
+                    state <= S_IDLE;
                 end
             endcase
         end
