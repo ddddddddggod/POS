@@ -8,7 +8,7 @@ module calc_fsm(
 
     output reg [127:0] disp_str_flat,   // 전체 입력 문자열 (16자)
     output reg [7:0] op_char,           // 현재 연산자
-    output reg [23:0] result_value,     // 결과 값
+    output reg [31:0] result_value,     // 결과 값 (최대 8자리)
     output reg        result_valid,     // 결과 유효
     output reg [15:0] input_val         // 현재 입력 중인 숫자
 );
@@ -22,7 +22,7 @@ module calc_fsm(
 
     reg [2:0] state;
 
-    reg [15:0] operand_stack [0:7];
+    reg [31:0] operand_stack [0:7];
     reg [7:0]  operator_stack [0:7];
     reg [3:0] operand_top;
     reg [3:0] operator_top;
@@ -46,9 +46,9 @@ module calc_fsm(
         end
     endfunction
 
-    function [15:0] apply_operator;
+    function [31:0] apply_operator;
         input [7:0] op;
-        input [15:0] a, b;
+        input [31:0] a, b;
         begin
             case (op)
                 "+": apply_operator = a + b;
