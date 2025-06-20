@@ -58,6 +58,7 @@ set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[2]}
 set_property -dict {PACKAGE_PIN F21 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[3]}]
 set_property -dict {PACKAGE_PIN H19 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[4]}]
 set_property -dict {PACKAGE_PIN H18 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[5]}]
+set_property -dict {PACKAGE_PIN M15 IOSTANDARD LVCMOS33}  [get_ports {dip_sw[7]}]
 #-------------------------------
 #led
 #-------------------------------
