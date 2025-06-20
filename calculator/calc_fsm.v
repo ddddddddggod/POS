@@ -6,7 +6,7 @@ module calc_fsm(
     input wire btn_valid,
     input wire [7:0] btn_char,     // '0' ~ '9', '+', '-', '*', '=', 'C', 8'h08(BACKSPACE)
 
-    output reg [127:0] disp_str_flat,   // 전체 입력 문자열 (16자)
+    output reg [255:0] disp_str_flat,   // 전체 입력 문자열 (32자)
     output reg [7:0] op_char,           // 현재 연산자
     output reg [31:0] result_value,     // 결과 값 (최대 8자리)
     output reg        result_valid,     // 결과 유효
@@ -27,14 +27,14 @@ module calc_fsm(
     reg [3:0] operand_top;
     reg [3:0] operator_top;
 
-    reg [4:0] disp_index;
-    reg [7:0] disp_str [0:15];
+    reg [5:0] disp_index; // 0~31
+    reg [7:0] disp_str [0:31];
 
     integer i;
 
     // flatten display string
     always @(*) begin
-        for (i = 0; i < 16; i = i + 1)
+        for (i = 0; i < 32; i = i + 1)
             disp_str_flat[i*8 +: 8] = disp_str[i];
     end
 
@@ -83,7 +83,7 @@ module calc_fsm(
             result_valid  <= 0;
             input_val     <= 0;
             disp_index    <= 0;
-            for (i = 0; i < 16; i = i + 1)
+            for (i = 0; i < 32; i = i + 1)
                 disp_str[i] <= " ";
         end else if (btn_valid) begin
             result_valid <= 0;
@@ -97,7 +97,7 @@ module calc_fsm(
                     input_val <= input_val / 10;
             end else begin
                 // Store to display
-                if (disp_index < 16) begin
+                if (disp_index < 32) begin
                     disp_str[disp_index] <= btn_char;
                     disp_index <= disp_index + 1;
                 end
@@ -152,7 +152,7 @@ module calc_fsm(
                             operand_top <= 0;
                             operator_top <= 0;
                             disp_index <= 1;
-                            for (i = 0; i < 16; i = i + 1)
+                            for (i = 0; i < 32; i = i + 1)
                                 disp_str[i] <= " ";
                             disp_str[0] <= btn_char;
                             input_val <= btn_char - "0";
@@ -170,7 +170,7 @@ module calc_fsm(
                         result_value <= 0;
                         result_valid <= 0;
                         disp_index <= 0;
-                        for (i = 0; i < 16; i = i + 1)
+                        for (i = 0; i < 32; i = i + 1)
                             disp_str[i] <= " ";
                         state <= S_IDLE;
                     end
