@@ -30,8 +30,8 @@ module lcd_pic(
     localparam ORIGIN_X = 100, ORIGIN_Y = 150;
     localparam FONT_W = 8, FONT_H = 8;
     localparam TEXT_X = ORIGIN_X + 4 * (BTN_W + GAP_X) + 40;
-    localparam INPUT_Y = ORIGIN_Y;           // 입력 위치
-    localparam RESULT_Y = ORIGIN_Y + 40;     // 결과는 바로 아래
+    localparam INPUT_Y = ORIGIN_Y;
+    localparam RESULT_Y = ORIGIN_Y + 40;
 
     // 색상 정의
     localparam RED    = 24'hFF0000,
@@ -71,7 +71,7 @@ module lcd_pic(
             8'h00: char_code = "1";  8'h01: char_code = "2";  8'h02: char_code = "3";  8'h03: char_code = "+";
             8'h10: char_code = "4";  8'h11: char_code = "5";  8'h12: char_code = "6";  8'h13: char_code = "-";
             8'h20: char_code = "7";  8'h21: char_code = "8";  8'h22: char_code = "9";  8'h23: char_code = "*";
-            8'h30: char_code = "C";  8'h31: char_code = "0";  8'h32: char_code = "=";  8'h33: char_code = " ";
+            8'h30: char_code = "C";  8'h31: char_code = "0";  8'h32: char_code = "=";  8'h33: char_code = "B"; // BACKSPACE
             default: char_code = 8'd0;
         endcase
     end
@@ -117,7 +117,6 @@ module lcd_pic(
     );
 
     integer k;
-    reg [10:0] txt_x, txt_y;
 
     always @(*) begin
         pix_data = WHITE;
@@ -170,4 +169,3 @@ module lcd_pic(
     end
 
 endmodule
-
