@@ -4,27 +4,28 @@ module calc_fsm(
     input wire clk,
     input wire rst_n,
     input wire btn_valid,
-    input wire [7:0] btn_char,
+    input wire [7:0] btn_char,     // '0' ~ '9', '+', '-', '*', '=', 'C', 8'h08(BACKSPACE)
 
-    output reg [255:0] disp_str_flat,
-    output reg [7:0] op_char,
-    output reg [31:0] result_value,
-    output reg        result_valid,
-    output reg [31:0] input_val   // ← ✅ 확장됨
+    output reg [255:0] disp_str_flat,   // 전체 입력 문자열 (32자)
+    output reg [7:0] op_char,           // 현재 연산자
+    output reg [31:0] result_value,     // 결과 값 (최대 8자리)
+    output reg        result_valid,     // 결과 유효
+    output reg [31:0] input_val         // 현재 입력 중인 숫자
 );
 
-    localparam S_IDLE = 3'd0;
-    localparam S_NEXT = 3'd1;
-    localparam S_EVAL = 3'd2;
-    localparam S_EQUAL = 3'd3;
-    localparam S_CLEAR = 3'd4;
+    // FSM states
+    localparam S_IDLE   = 3'd0;
+    localparam S_NEXT   = 3'd1;
+    localparam S_EVAL   = 3'd2;
+    localparam S_EQUAL  = 3'd3;
+    localparam S_CLEAR  = 3'd4;
 
     reg [2:0] state;
 
-    reg [31:0] operand_stack [0:7];
-    reg [7:0]  operator_stack [0:7];
-    reg [3:0] operand_top;
-    reg [3:0] operator_top;
+    reg [31:0] operand_stack [0:15];      // 스택 크기 확장
+    reg [7:0]  operator_stack [0:15];
+    reg [4:0] operand_top;                // 5비트로 확장
+    reg [4:0] operator_top;
 
     reg [5:0] disp_index;
     reg [7:0] disp_str [0:31];
@@ -39,8 +40,7 @@ module calc_fsm(
     function [0:0] precedence;
         input [7:0] op;
         begin
-            if (op == "*") precedence = 1;
-            else precedence = 0;
+            precedence = (op == "*") ? 1 : 0;
         end
     endfunction
 
@@ -71,6 +71,17 @@ module calc_fsm(
         end
     endtask
 
+    task eval_all;
+        integer j;
+        begin
+            for (j = 0; j < 15; j = j + 1) begin
+                if (operator_top > 0) begin
+                    eval_once();
+                end
+            end
+        end
+    endtask
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state         <= S_IDLE;
@@ -81,26 +92,18 @@ module calc_fsm(
             result_valid  <= 0;
             input_val     <= 0;
             disp_index    <= 0;
-
             for (i = 0; i < 32; i = i + 1)
                 disp_str[i] <= " ";
-
-            for (i = 0; i < 8; i = i + 1) begin
-                operand_stack[i] <= 0;
-                operator_stack[i] <= 0;
-            end
-
         end else if (btn_valid) begin
             result_valid <= 0;
 
-            if (btn_char == 8'h08) begin
+            if (btn_char == 8'h08) begin  // BACKSPACE
                 if (disp_index > 0) begin
                     disp_index <= disp_index - 1;
                     disp_str[disp_index - 1] <= " ";
                 end
                 if (input_val > 0)
                     input_val <= input_val / 10;
-
             end else begin
                 if (disp_index < 32) begin
                     disp_str[disp_index] <= btn_char;
@@ -143,9 +146,8 @@ module calc_fsm(
                     end
 
                     S_EQUAL: begin
-                        if (operator_top > 0) begin
-                            eval_once();
-                        end else begin
+                        eval_all();
+                        if (operator_top == 0 && operand_top > 0) begin
                             result_value <= operand_stack[0];
                             result_valid <= 1'b1;
                             state <= S_NEXT;
@@ -177,10 +179,6 @@ module calc_fsm(
                         disp_index <= 0;
                         for (i = 0; i < 32; i = i + 1)
                             disp_str[i] <= " ";
-                        for (i = 0; i < 8; i = i + 1) begin
-                            operand_stack[i] <= 0;
-                            operator_stack[i] <= 0;
-                        end
                         state <= S_IDLE;
                     end
                 endcase
