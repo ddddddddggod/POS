@@ -30,10 +30,10 @@ module lcd_top(
     wire [7:0] btn_char;
     wire btn_valid;
 
-    wire [127:0] disp_str_flat;
+    wire [255:0] disp_str_flat;       // ✅ 128 → 256비트 (32자 입력)
     wire [7:0] op_char;
     wire [15:0] input_val;
-    wire [31:0] result;           // ✅ 수정: 16 → 32 비트
+    wire [31:0] result;               // ✅ 16 → 32비트
     wire calc_done;
 
     assign rst_n = (sys_rst_n & locked);
@@ -70,16 +70,16 @@ module lcd_top(
         .btn_valid(btn_valid)
     );
 
-    // Calculator FSM (계산 로직)
+    // Calculator FSM
     calc_fsm calc_fsm_inst (
         .clk(lcd_clk_33m),
         .rst_n(rst_n),
         .btn_valid(btn_valid),
         .btn_char(btn_char),
-        .disp_str_flat(disp_str_flat),
+        .disp_str_flat(disp_str_flat),  // ✅ 확장 반영
         .op_char(op_char),
         .input_val(input_val),
-        .result_value(result),          // ✅ 수정됨
+        .result_value(result),          // ✅ 32비트
         .result_valid(calc_done)
     );
 
@@ -91,8 +91,8 @@ module lcd_top(
         .pix_y(pix_y),
         .cursor_x(cursor_x),
         .cursor_y(cursor_y),
-        .disp_str_flat(disp_str_flat),
-        .result(result),               // ✅ 수정됨
+        .disp_str_flat(disp_str_flat),  // ✅ 256비트 입력
+        .result(result),                // ✅ 32비트 결과
         .calc_done(calc_done),
         .pix_data(pix_data)
     );
