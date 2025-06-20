@@ -22,9 +22,9 @@ module calc_fsm(
 
     reg [2:0] state;
 
-    reg [31:0] operand_stack [0:15];      // 스택 크기 확장
+    reg [31:0] operand_stack [0:15];
     reg [7:0]  operator_stack [0:15];
-    reg [4:0] operand_top;                // 5비트로 확장
+    reg [4:0] operand_top;
     reg [4:0] operator_top;
 
     reg [5:0] disp_index;
@@ -32,6 +32,7 @@ module calc_fsm(
 
     integer i;
 
+    // 디스플레이 문자열 평탄화
     always @(*) begin
         for (i = 0; i < 32; i = i + 1)
             disp_str_flat[i*8 +: 8] = disp_str[i];
@@ -75,7 +76,18 @@ module calc_fsm(
         integer j;
         begin
             for (j = 0; j < 15; j = j + 1) begin
-                if (operator_top > 0) begin
+                if (operator_top > 0) eval_once();
+            end
+        end
+    endtask
+
+    // 현재 연산자보다 우선순위가 높거나 같은 연산자들 먼저 계산
+    task eval_priority_ops;
+        input [7:0] new_op;
+        integer k;
+        begin
+            for (k = 0; k < 15; k = k + 1) begin
+                if (operator_top > 0 && precedence(operator_stack[operator_top - 1]) >= precedence(new_op)) begin
                     eval_once();
                 end
             end
@@ -119,13 +131,10 @@ module calc_fsm(
                             operand_top <= operand_top + 1;
                             input_val <= 0;
 
-                            if (operator_top > 0 && precedence(operator_stack[operator_top - 1]) >= precedence(btn_char)) begin
-                                state <= S_EVAL;
-                                op_char <= btn_char;
-                            end else begin
-                                operator_stack[operator_top] <= btn_char;
-                                operator_top <= operator_top + 1;
-                            end
+                            eval_priority_ops(btn_char);
+
+                            operator_stack[operator_top] <= btn_char;
+                            operator_top <= operator_top + 1;
                         end else if (btn_char == "=" && input_val != 0) begin
                             operand_stack[operand_top] <= input_val;
                             operand_top <= operand_top + 1;
@@ -133,15 +142,6 @@ module calc_fsm(
                             state <= S_EQUAL;
                         end else if (btn_char == "C") begin
                             state <= S_CLEAR;
-                        end
-                    end
-
-                    S_EVAL: begin
-                        eval_once();
-                        if (operator_top == 0 || precedence(operator_stack[operator_top - 1]) < precedence(op_char)) begin
-                            operator_stack[operator_top] <= op_char;
-                            operator_top <= operator_top + 1;
-                            state <= S_IDLE;
                         end
                     end
 
@@ -186,3 +186,4 @@ module calc_fsm(
         end
     end
 endmodule
+
