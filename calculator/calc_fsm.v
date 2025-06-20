@@ -4,21 +4,20 @@ module calc_fsm(
     input wire clk,
     input wire rst_n,
     input wire btn_valid,
-    input wire [7:0] btn_char,     // '0' ~ '9', '+', '-', '*', '=', 'C', 8'h08(BACKSPACE)
+    input wire [7:0] btn_char,
 
-    output reg [255:0] disp_str_flat,   // 전체 입력 문자열 (32자)
-    output reg [7:0] op_char,           // 현재 연산자
-    output reg [31:0] result_value,     // 결과 값 (최대 8자리)
-    output reg        result_valid,     // 결과 유효
-    output reg [15:0] input_val         // 현재 입력 중인 숫자
+    output reg [255:0] disp_str_flat,
+    output reg [7:0] op_char,
+    output reg [31:0] result_value,
+    output reg        result_valid,
+    output reg [31:0] input_val   // ← ✅ 확장됨
 );
 
-    // FSM states
-    localparam S_IDLE   = 3'd0;
-    localparam S_NEXT   = 3'd1;
-    localparam S_EVAL   = 3'd2;
-    localparam S_EQUAL  = 3'd3;
-    localparam S_CLEAR  = 3'd4;
+    localparam S_IDLE = 3'd0;
+    localparam S_NEXT = 3'd1;
+    localparam S_EVAL = 3'd2;
+    localparam S_EQUAL = 3'd3;
+    localparam S_CLEAR = 3'd4;
 
     reg [2:0] state;
 
@@ -27,12 +26,11 @@ module calc_fsm(
     reg [3:0] operand_top;
     reg [3:0] operator_top;
 
-    reg [5:0] disp_index; // 0~31
+    reg [5:0] disp_index;
     reg [7:0] disp_str [0:31];
 
     integer i;
 
-    // flatten display string
     always @(*) begin
         for (i = 0; i < 32; i = i + 1)
             disp_str_flat[i*8 +: 8] = disp_str[i];
@@ -83,20 +81,27 @@ module calc_fsm(
             result_valid  <= 0;
             input_val     <= 0;
             disp_index    <= 0;
+
             for (i = 0; i < 32; i = i + 1)
                 disp_str[i] <= " ";
+
+            for (i = 0; i < 8; i = i + 1) begin
+                operand_stack[i] <= 0;
+                operator_stack[i] <= 0;
+            end
+
         end else if (btn_valid) begin
             result_valid <= 0;
 
-            if (btn_char == 8'h08) begin  // BACKSPACE
+            if (btn_char == 8'h08) begin
                 if (disp_index > 0) begin
                     disp_index <= disp_index - 1;
                     disp_str[disp_index - 1] <= " ";
                 end
                 if (input_val > 0)
                     input_val <= input_val / 10;
+
             end else begin
-                // Store to display
                 if (disp_index < 32) begin
                     disp_str[disp_index] <= btn_char;
                     disp_index <= disp_index + 1;
@@ -113,7 +118,7 @@ module calc_fsm(
 
                             if (operator_top > 0 && precedence(operator_stack[operator_top - 1]) >= precedence(btn_char)) begin
                                 state <= S_EVAL;
-                                op_char <= btn_char;  // temporarily store new op
+                                op_char <= btn_char;
                             end else begin
                                 operator_stack[operator_top] <= btn_char;
                                 operator_top <= operator_top + 1;
@@ -172,6 +177,10 @@ module calc_fsm(
                         disp_index <= 0;
                         for (i = 0; i < 32; i = i + 1)
                             disp_str[i] <= " ";
+                        for (i = 0; i < 8; i = i + 1) begin
+                            operand_stack[i] <= 0;
+                            operator_stack[i] <= 0;
+                        end
                         state <= S_IDLE;
                     end
                 endcase
