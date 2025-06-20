@@ -45,6 +45,7 @@ module button_input (
                     8'h30: btn_char <= "C";
                     8'h31: btn_char <= "0";
                     8'h32: btn_char <= "=";
+                    8'h33: btn_char <= 8'h08;   // BACKSPACE (ASCII 8)
                     default: btn_char <= 8'd0;
                 endcase
                 btn_valid <= 1'b1;  // 1클럭 동안 High
