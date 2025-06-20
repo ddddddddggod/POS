@@ -9,7 +9,7 @@ module lcd_pic(
     input wire [3:0] cursor_y,
 
     input wire [255:0] disp_str_flat,  // 입력 문자열 (32자)
-    input wire [23:0] result,          // 연산 결과 (8자리까지 지원)
+    input wire [31:0] result,          // ✅ 연산 결과 (10자리까지 지원)
     input wire calc_done,              // '=' 눌렸는지 여부
 
     output reg [23:0] pix_data
@@ -32,7 +32,7 @@ module lcd_pic(
     localparam TEXT_X = ORIGIN_X + 4 * (BTN_W + GAP_X) + 40;
     localparam INPUT_Y1 = ORIGIN_Y;
     localparam INPUT_Y2 = ORIGIN_Y + 20;
-    localparam RESULT_Y = ORIGIN_Y + 50; // 두 줄 아래에 결과 출력
+    localparam RESULT_Y = ORIGIN_Y + 50;
 
     // 색상 정의
     localparam RED    = 24'hFF0000,
@@ -72,7 +72,7 @@ module lcd_pic(
             8'h00: char_code = "1";  8'h01: char_code = "2";  8'h02: char_code = "3";  8'h03: char_code = "+";
             8'h10: char_code = "4";  8'h11: char_code = "5";  8'h12: char_code = "6";  8'h13: char_code = "-";
             8'h20: char_code = "7";  8'h21: char_code = "8";  8'h22: char_code = "9";  8'h23: char_code = "*";
-            8'h30: char_code = "C";  8'h31: char_code = "0";  8'h32: char_code = "=";  8'h33: char_code = "B"; // BACKSPACE
+            8'h30: char_code = "C";  8'h31: char_code = "0";  8'h32: char_code = "=";  8'h33: char_code = "B";
             default: char_code = 8'd0;
         endcase
     end
@@ -143,20 +143,22 @@ module lcd_pic(
                 end
             end
 
-            // 결과 출력 (최대 8자리)
+            // ✅ 결과 출력 (최대 10자리)
             if (calc_done) begin
-                for (k = 0; k < 8; k = k + 1) begin
+                for (k = 0; k < 10; k = k + 1) begin
                     if (pix_x >= TEXT_X + k * 16 && pix_x < TEXT_X + (k + 1) * 16 &&
                         pix_y >= RESULT_Y && pix_y < RESULT_Y + 16) begin
                         case (k)
-                            0: current_char = (result / 10000000) % 10 + "0";
-                            1: current_char = (result / 1000000) % 10 + "0";
-                            2: current_char = (result / 100000) % 10 + "0";
-                            3: current_char = (result / 10000) % 10 + "0";
-                            4: current_char = (result / 1000) % 10 + "0";
-                            5: current_char = (result / 100) % 10 + "0";
-                            6: current_char = (result / 10) % 10 + "0";
-                            7: current_char = result % 10 + "0";
+                            0: current_char = (result / 1000000000) % 10 + "0";
+                            1: current_char = (result / 100000000) % 10 + "0";
+                            2: current_char = (result / 10000000) % 10 + "0";
+                            3: current_char = (result / 1000000) % 10 + "0";
+                            4: current_char = (result / 100000) % 10 + "0";
+                            5: current_char = (result / 10000) % 10 + "0";
+                            6: current_char = (result / 1000) % 10 + "0";
+                            7: current_char = (result / 100) % 10 + "0";
+                            8: current_char = (result / 10) % 10 + "0";
+                            9: current_char = result % 10 + "0";
                         endcase
                         if (font_line_result[7 - font_x_disp])
                             pix_data = RED;
