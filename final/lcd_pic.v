@@ -12,7 +12,7 @@ module lcd_pic(
     input wire [31:0] result,          // ? 연산 결과 (10자리까지 지원)
     input wire calc_done,              // '=' 눌렸는지 여부
 
-    output reg [23:0] pix_data
+    output reg [23:0] pix_data_ui
 );
 
     // 문자열 배열로 분해
@@ -116,13 +116,13 @@ module lcd_pic(
     integer k;
 
     always @(*) begin
-        pix_data = WHITE;
+        pix_data_ui = WHITE;
         current_char = " ";
 
         if (!sys_rst_n)
-            pix_data = BLACK;
+            pix_data_ui = BLACK;
         else if (pix_y < 100)
-            pix_data = YELLOW;
+            pix_data_ui = YELLOW;
         else begin
             // 첫 줄 입력 (0~15)
             for (k = 0; k < 16; k = k + 1) begin
@@ -130,7 +130,7 @@ module lcd_pic(
                     pix_y >= INPUT_Y1 && pix_y < INPUT_Y1 + 16) begin
                     current_char = disp_str[k];
                     if (font_line_disp1[7 - font_x_disp])
-                        pix_data = RED;
+                        pix_data_ui = RED;
                 end
             end
             // 둘째 줄 입력 (16~31)
@@ -139,7 +139,7 @@ module lcd_pic(
                     pix_y >= INPUT_Y2 && pix_y < INPUT_Y2 + 16) begin
                     current_char = disp_str[k + 16];
                     if (font_line_disp2[7 - font_x_disp])
-                        pix_data = RED;
+                        pix_data_ui = RED;
                 end
             end
 
@@ -161,7 +161,7 @@ module lcd_pic(
                             9: current_char = result % 10 + "0";
                         endcase
                         if (font_line_result[7 - font_x_disp])
-                            pix_data = RED;
+                            pix_data_ui = RED;
                     end
                 end
             end
@@ -170,11 +170,11 @@ module lcd_pic(
             if (pix_x >= char_left && pix_x < char_left + 16 &&
                 pix_y >= char_top && pix_y < char_top + 16 &&
                 font_x < 8 && font_y < 8 && font_bits[7 - font_x])
-                pix_data = BLACK;
+                pix_data_ui = BLACK;
             else if (in_button && (btn_row == cursor_y && btn_col == cursor_x))
-                pix_data = ORANGE;
+                pix_data_ui = ORANGE;
             else if (in_button)
-                pix_data = GRAY;
+                pix_data_ui = GRAY;
         end
     end
 
