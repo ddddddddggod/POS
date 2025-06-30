@@ -5,7 +5,7 @@
 - Libertron사의 EMA-MOD-7V2000T-2-2 모듈 (Xilinx Virtex-7 시리즈 FPGA (XC7V2000T-2FLG1925C)탑재)
 - FSM LCD 모듈
 
-  ![dataflow](diagram.png)
+  ![dataflow](dataflow.jpg)
 
 ## 메뉴판 선택
 - LCD : 메뉴판 그림 출력
