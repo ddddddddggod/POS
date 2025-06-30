@@ -21,6 +21,8 @@
 ### Mode 2 (자동 계산)
 - LCD : 메뉴판에서 선택된 메뉴 자동 덧셈
 
+  ![button](button.jpg)
+
 ## Final Sources
 ### Deisgn Sources
 - lcd_top >> top module
